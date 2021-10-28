@@ -1,0 +1,166 @@
+---
+title: 'Lab #8 (model)'
+author: "Jerid Francom"
+date: "10/27/2021"
+output: 
+  pdf_document: 
+    toc: yes
+    number_sections: yes
+  html_document: 
+    toc: yes
+    number_sections: yes
+    df_print: kable
+---
+
+```{r setup, message=FALSE}
+library(tidyverse) # data manipulation
+library(tidytext)  # tokenize text 
+library(knitr)     # for pretty tables, captions
+
+source("functions/functions.R") # data_dic_starter()
+```
+
+# Overview
+
+In this lab I will read the curated dataset based on the [Consumer Reviews of Amazon Products](https://www.kaggle.com/datafiniti/consumer-reviews-of-amazon-products) dataset from Kaggle. I will tokenize the reviews into words and then join the sentiment lexicon from the tidytext package to label the words with 'positive' or 'negative' sentiment. I will then write this transformed dataset to disk and document the transformed dataset.
+
+# Tasks
+
+## Orientation
+
+Let's get familiar with the [Consumer Reviews of Amazon Products](https://www.kaggle.com/datafiniti/consumer-reviews-of-amazon-products) curated dataset. 
+
+First I will take a look at the data dictionary for the Amazon Reviews which is found in the `data/derived/` directory.
+
+```{r reviews-data-dictionary, message=FALSE, echo=FALSE}
+reviews_data_dictionary <- 
+  read_csv(file = "data/derived/amazon_reviews_curated_data_dictionary.csv") # read the curated dataset
+
+reviews_data_dictionary %>% 
+  kable(booktabs = TRUE, # bold headers
+        caption = "Amazon Product Reviews data dictionary.") # caption
+```
+
+Now I'll read and preview the structure of the curated dataset. 
+
+```{r reviews-read, message=FALSE}
+reviews <- 
+  read_csv(file = "data/derived/amazon_reviews_curated.csv") # read curated dataset
+
+glimpse(reviews) # preview
+```
+
+There are ten observations and four variables. 
+
+Now let's consider the sentiment lexicon dataset that I will use to join with the Amazon reviews. I will load and preview the structure of this dataset using the `get_sentiments()` function. 
+
+```{r load-sentiments}
+sentiments <- get_sentiments() # load the sentiments lexicon included in the tidytext package
+
+glimpse(sentiments) # preview
+```
+
+There are 6,786 observations and two variables. 
+
+I will want to tokenize the `review` column from the `reviews` dataset into words and then join the words from the `sentiments` dataset. I propose the following idealized dataset structure for the transformed dataset. 
+
+```{r reviews-idealized-transformation, echo=FALSE}
+tribble(
+  ~id, ~product, ~rating, ~word, ~sentiment,
+  "1", "Kindle Fire", "5", "good", "positive",
+  "...", "...", "...", "...", "...",
+  "2", "Kindle Fire", "1", "bad", "negative",
+  "...", "...", "...", "...", "..."
+) %>% 
+  kable(booktabs = TRUE, # bold headers
+        caption = "Idealized transformed dataset for the Amazon Product Reviews.") # caption
+```
+
+Now I have a target format for my transformed dataset.
+
+## Transform
+
+### Tokenize
+
+With this goal in mind, I will now tokenize the reviews into words. This will create a new column `word` which I will use join with the `sentiments` dataset's `word` column.
+
+```{r reviews-tokenize-words}
+reviews_words <- 
+  reviews %>% # dataset
+  unnest_tokens(output = "word", # output column
+                input = "review", # input column
+                token = "words") # tokenize unit
+```
+
+```{r reviews-words-preview, echo=FALSE}
+reviews_words %>% # dataset
+  slice_head(n = 10) %>% # first 10 observations
+  kable(booktabs = TRUE, # bold headers
+        caption = "First 10 observations of the `reviews_words` data frame.") # caption
+```
+
+
+### Join
+
+Now I want to join all the observations from the `reviews_words` data frame with all the observations from the `sentiments` data frame that match. The shared column between the two data frames is the `word` column. To do this operation I will use the `left_join()` function. 
+
+```{r reviews-words-sentiments-join}
+reviews_words_sentiments <- 
+  left_join(reviews_words, sentiments) # join by word
+```
+
+Let's preview the first 10 observations to see the results. 
+
+```{r reviews-words-sentiments-join-preview, echo=FALSE}
+reviews_words_sentiments %>% 
+  slice_head(n = 10) %>% # first 10 observations
+  kable(booktabs = TRUE, # bold headers
+        caption = "First 10 observations of the `reviews_words_sentiments` data frame.") # caption
+```
+
+From the first 10 observations it appears there are many words that are not in the `sentiments` lexicon. Let's filter to see observations that have a value for `sentiment` in the `reviews_words_sentiments` data frame.
+
+```{r reviews-words-sentiments-filter, echo=FALSE}
+reviews_words_sentiments %>% # dataset
+  filter(sentiment != "") %>% # filter out NA values
+  slice_head(n = 10) %>% # first 10 observations
+  kable(booktabs = TRUE, # bold headers
+        caption = "First 10 observations for words with sentiment labels.") # caption
+```
+```{r reviews-words-sentiments-count, echo=FALSE}
+reviews_words_sentiments %>% # dataset
+  group_by(id, rating, sentiment) %>% # group
+  count() %>% # count sentiments by product id
+  arrange(rating) %>%  # sort by rating score
+  kable(booktabs = TRUE, # bold headers
+        caption = "Summary of sentiment labels for each product review.") # caption
+```
+Looking at the results, it appears that a simple word-based lexicon approach to sentiment labeling may not be ideal --specifically for low ratings. 
+
+## Write the dataset
+
+I will now write this transformed dataset to disk. 
+
+```{r reviews-words-sentiments-write}
+write_csv(reviews_words_sentiments, file = "data/derived/amazon_reviews_words_sentiments.csv")
+```
+
+## Document
+
+Now I will create and edit a data dictionary file for this transformed dataset. To do this I will use the `data_dic_starter()` function that I sourced from the `functions/functions.R` file. 
+
+```{r data-dictionary-starter, eval=FALSE}
+data_dic_starter(data = reviews_words_sentiments,
+                 file_path = "data/derived/amazon_reviews_words_sentiments_data_dictionary.csv")
+```
+
+Here's what the `data/` directory structure looks like: 
+
+```{r data-directory-structure, comment="", echo=FALSE}
+fs::dir_tree("data/")
+```
+
+
+# Assessment
+
+...

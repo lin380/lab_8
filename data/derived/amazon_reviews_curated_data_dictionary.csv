@@ -1,0 +1,5 @@
+variable_name,name,description
+id,Product ID,Unique ID for each product review
+product,Product Name,Name of the product that was reviewed
+rating,Product Rating,"Rating given to the product: 5 is the highest, 1 is the lowest"
+review,Product Review,Review given in prose by the product rater
